@@ -24,6 +24,10 @@
       border-radius: .42em;
       padding: .36em;
     }
+    #bookStatus {
+      font-size: 1.2em;
+      color: #f44;
+    }
     #bookImageUrl img {
       max-width: 500px;
       cursor: pointer;
@@ -54,20 +58,22 @@
 
   <body>
     <header class="header">
-      <h2>本の表紙をDLする 📕</h2>
+      <h2>本の表紙 をダウンロードする</h2>
     </header>
 
-    <h3>ISBN を入力 ✏️</h3>
+    <h3> ✏️ ISBN を入力</h3>
     <form>
       <input type="input" id="isbn" value="9784" oninput="onIsbnInput()" />
     </form>
 
-    <h3>表紙</h3>
+    <h3>ステータス</h3>
     <div id="bookStatus"></div>
+
+    <h3>表紙</h3>
     <div id="bookTitle"></div>
     <div id="bookImageUrl"></div>
 
-    <h3>履歴 📚</h3>
+    <h3>履歴</h3>
     <div id="bookHistory"></div>
 
     <script>
@@ -204,6 +210,7 @@
         // openBD API
         const openbdApi = "https://api.openbd.jp/v1/get?isbn=";
         const response = await fetch(openbdApi + isbn).then((r) => r.json());
+        bookStatus("通信中...");
         if (response[0]) {
           title = response[0].summary.title;
           authors = response[0].summary.author
@@ -215,8 +222,10 @@
         // Google Books API
         const googleBookApi = "https://www.googleapis.com/books/v1/volumes?q=isbn:";
         try {
+          bookStatus("通信中...");
           const res = await fetch(googleBookApi + isbn);
           const data = await res.json();
+
           if (data.totalItems) {
             const info = data.items[0].volumeInfo;
             if (!title) title = info.title;
@@ -234,7 +243,6 @@
         const bookName = title || authors ? `${isbn}_${title}_${authors}` : isbn;
         bookTitle(bookName);
 
-        bookStatus("ダウンロード中...");
         const dl = await fetch(bookImageUrl);
         if (!dl.ok) {
           bookStatus("画像が見つかりませんでした。");
