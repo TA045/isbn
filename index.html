@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="utf-8">
-    <title>本の表紙をダウンロードする</title>
-    <style>
+
+<head>
+  <meta charset="utf-8">
+  <title>本の表紙をダウンロードする</title>
+  <style>
     body {
       font-family: "Helvetica Neue", "Helvetica", sans-serif;
       font-size: 1em;
@@ -12,29 +13,38 @@
       max-width: 90%;
       background-color: whitesmoke;
     }
-    .note { font-style: italic; }
+
+    .note {
+      font-style: italic;
+    }
+
     .header {
       max-width: 100%;
       margin-left: auto;
       margin-top: 5px;
       margin-bottom: 10px;
     }
+
     input {
       font-size: 1.2em;
       border-radius: .42em;
       padding: .36em;
     }
+
     #bookStatus {
       font-size: 1.2em;
       color: #f44;
     }
+
     #bookImageUrl img {
       max-width: 500px;
       cursor: pointer;
     }
+
     #bookHistory ul {
       padding-left: 1em;
     }
+
     #bookHistory li {
       list-style: none;
       margin-bottom: 0.5em;
@@ -47,230 +57,253 @@
       text-align: center;
       position: relative;
     }
+
     #bookHistory li img {
       max-height: 125px;
       cursor: pointer;
       display: block;
       margin-bottom: 5px;
     }
-    </style>
-  </head>
+  </style>
+</head>
 
-  <body>
-    <header class="header">
-      <h2>本の表紙 をダウンロードする</h2>
-    </header>
+<body>
+  <header class="header">
+    <h2>本の表紙 をダウンロードする</h2>
+  </header>
 
-    <h3> ✏️ ISBN を入力</h3>
-    <form>
-      <input type="input" id="isbn" value="9784" oninput="onIsbnInput()" />
-    </form>
+  <h3> ✏️ ISBN を入力</h3>
+  <form>
+    <input type="input" id="isbn" value="9784" oninput="onIsbnInput()" />
+  </form>
 
-    <h3>ステータス</h3>
-    <div id="bookStatus"></div>
+  <h3>ステータス</h3>
+  <div id="bookStatus"></div>
 
-    <h3>表紙</h3>
-    <div id="bookTitle"></div>
-    <div id="bookImageUrl"></div>
+  <h3>表紙</h3>
+  <div id="bookImageUrl"></div>
 
-    <h3>履歴</h3>
-    <div id="bookHistory"></div>
+  <h3>タイトル</h3>
+  <div id="bookTitle"></div>
 
-    <script>
-      function i13to10(isbn_s) {
-        let sum = 0;
-        let chkDgt;
-        let dgts = [];
-        dgts = isbn_s.slice(3, -1).split("");
-        for (let i = 0; i < 9; i++) sum += dgts[i] * (10 - i);
-        chkDgt = 11 - (sum % 11);
-        if (chkDgt === 10) chkDgt = "X";
-        else if (chkDgt === 11) chkDgt = 0;
-        dgts.push(chkDgt);
-        return dgts.join("");
+  <h3>履歴</h3>
+  <div id="bookHistory"></div>
+
+  <h3>ローカルストレージ</h3>
+  <div id="storageUsage"></div>
+
+  <script>
+    function i13to10(isbn_s) {
+      let sum = 0;
+      let chkDgt;
+      let dgts = [];
+      dgts = isbn_s.slice(3, -1).split("");
+      for (let i = 0; i < 9; i++) sum += dgts[i] * (10 - i);
+      chkDgt = 11 - (sum % 11);
+      if (chkDgt === 10) chkDgt = "X";
+      else if (chkDgt === 11) chkDgt = 0;
+      dgts.push(chkDgt);
+      return dgts.join("");
+    }
+
+    function bookStatus(msg) {
+      document.getElementById("bookStatus").innerHTML = msg;
+    }
+    function bookTitle(msg) {
+      document.getElementById("bookTitle").innerHTML = msg;
+    }
+
+    function downloadImage(image, bookName) {
+      const imageUrl = window.URL.createObjectURL(image);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = imageUrl;
+      downloadLink.download = bookName;
+      downloadLink.click();
+      window.URL.revokeObjectURL(imageUrl);
+    }
+
+    // base64変換
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    // 履歴に追加して localStorage に保存
+    async function addHistory(bookName, base64Image) {
+      const historyDiv = document.getElementById("bookHistory");
+      const historyList =
+        historyDiv.querySelector("ul") || document.createElement("ul");
+
+      historyList.style.display = "flex";
+      historyList.style.flexWrap = "wrap";
+      historyList.style.gap = "1em";
+      historyList.style.padding = "0";
+
+      const listItem = document.createElement("li");
+
+      const imgElement = document.createElement("img");
+      imgElement.src = base64Image;
+      imgElement.onclick = () => {
+        const link = document.createElement("a");
+        link.href = base64Image;
+        link.download = bookName;
+        link.click();
+      };
+
+      const deleteButton = document.createElement("span");
+      deleteButton.textContent = "✖︎";
+      deleteButton.style.cursor = "pointer";
+      deleteButton.style.position = "absolute";
+      deleteButton.style.bottom = "0";
+      deleteButton.style.right = "0";
+      deleteButton.style.padding = "5px";
+      deleteButton.style.fontSize = "10px";
+      deleteButton.onclick = (e) => {
+        e.stopPropagation();
+        listItem.remove();
+        removeFromStorage(bookName);
+      };
+
+      listItem.appendChild(imgElement);
+      listItem.appendChild(deleteButton);
+      historyList.prepend(listItem);
+
+      if (!historyDiv.querySelector("ul")) {
+        historyDiv.appendChild(historyList);
       }
 
-      function bookStatus(msg) {
-        document.getElementById("bookStatus").innerHTML = msg;
-      }
-      function bookTitle(msg) {
-        document.getElementById("bookTitle").innerHTML = msg;
-      }
+      saveToStorage(bookName, base64Image);
+    }
 
-      function downloadImage(image, bookName) {
-        const imageUrl = window.URL.createObjectURL(image);
-        const downloadLink = document.createElement("a");
-        downloadLink.href = imageUrl;
-        downloadLink.download = bookName;
-        downloadLink.click();
-        window.URL.revokeObjectURL(imageUrl);
-      }
-
-      // base64変換
-      function blobToBase64(blob) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      }
-
-      // 履歴に追加して localStorage に保存
-      async function addHistory(bookName, base64Image) {
-        const historyDiv = document.getElementById("bookHistory");
-        const historyList =
-          historyDiv.querySelector("ul") || document.createElement("ul");
-
-        historyList.style.display = "flex";
-        historyList.style.flexWrap = "wrap";
-        historyList.style.gap = "1em";
-        historyList.style.padding = "0";
-
-        const listItem = document.createElement("li");
-
-        const imgElement = document.createElement("img");
-        imgElement.src = base64Image;
-        imgElement.onclick = () => {
-          const link = document.createElement("a");
-          link.href = base64Image;
-          link.download = bookName;
-          link.click();
-        };
-
-        const deleteButton = document.createElement("span");
-        deleteButton.textContent = "✖︎";
-        deleteButton.style.cursor = "pointer";
-        deleteButton.style.position = "absolute";
-        deleteButton.style.bottom = "0";
-        deleteButton.style.right = "0";
-        deleteButton.style.padding = "5px";
-        deleteButton.style.fontSize = "10px";
-        deleteButton.onclick = (e) => {
-          e.stopPropagation();
-          listItem.remove();
-          removeFromStorage(bookName);
-        };
-
-        listItem.appendChild(imgElement);
-        listItem.appendChild(deleteButton);
-        historyList.prepend(listItem);
-
-        if (!historyDiv.querySelector("ul")) {
-          historyDiv.appendChild(historyList);
+    // LocalStorage 使用量更新
+    function updateStorageUsage() {
+      let total = 0;
+      for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+          total += (localStorage[key].length + key.length) * 2;
         }
-
-        saveToStorage(bookName, base64Image);
       }
+      const kb = (total / 1024).toFixed(2);
+      const mb = (total / 1024 / 1024).toFixed(2);
+      document.getElementById("storageUsage").textContent = `使用量: ${kb} KB (${mb} MB)`;
+    }
 
-      // localStorage 保存
-      function saveToStorage(bookName, base64Image) {
-        const data = JSON.parse(localStorage.getItem("bookHistory") || "[]");
-        // 既に同じ本がある場合は削除して上に追加
-        const filtered = data.filter((b) => b.name !== bookName);
-        filtered.unshift({ name: bookName, img: base64Image });
-        localStorage.setItem("bookHistory", JSON.stringify(filtered));
-      }
+    // localStorage 保存
+    function saveToStorage(bookName, base64Image) {
+      const data = JSON.parse(localStorage.getItem("bookHistory") || "[]");
+      // 既に同じ本がある場合は削除して上に追加
+      const filtered = data.filter((b) => b.name !== bookName);
+      filtered.unshift({ name: bookName, img: base64Image });
+      localStorage.setItem("bookHistory", JSON.stringify(filtered));
+      updateStorageUsage();
+    }
 
-      // localStorage 削除
-      function removeFromStorage(bookName) {
-        const data = JSON.parse(localStorage.getItem("bookHistory") || "[]");
-        const filtered = data.filter((b) => b.name !== bookName);
-        localStorage.setItem("bookHistory", JSON.stringify(filtered));
-      }
+    // localStorage 削除
+    function removeFromStorage(bookName) {
+      const data = JSON.parse(localStorage.getItem("bookHistory") || "[]");
+      const filtered = data.filter((b) => b.name !== bookName);
+      localStorage.setItem("bookHistory", JSON.stringify(filtered));
+      updateStorageUsage();
+    }
 
-      // localStorage 読み込み
-      function loadHistory() {
-        const data = JSON.parse(localStorage.getItem("bookHistory") || "[]").reverse();
-        data.forEach((item) => addHistory(item.name, item.img));
-      }
+    // localStorage 読み込み
+    function loadHistory() {
+      const data = JSON.parse(localStorage.getItem("bookHistory") || "[]").reverse();
+      data.forEach((item) => addHistory(item.name, item.img));
+      updateStorageUsage();
+    }
 
-      async function onIsbnInput() {
-        const isbn = document.getElementById("isbn").value;
-        if (isbn.length < 13) {
-          bookStatus(`ISBNを入力してください。あと ${13 - isbn.length} 文字`);
-          bookTitle("");
-          document.getElementById("bookImageUrl").innerHTML = "";
-          return;
-        }
-
-        const regex = /^978[\dX]{10}$/;
-        if (!isbn.match(regex)) {
-          bookStatus("ISBNは13桁の数字で978から始まる必要があります。");
-          return;
-        }
-
-        bookStatus("");
+    async function onIsbnInput() {
+      const isbn = document.getElementById("isbn").value;
+      if (isbn.length < 13) {
+        bookStatus(`ISBNを入力してください。あと ${13 - isbn.length} 文字`);
         bookTitle("");
         document.getElementById("bookImageUrl").innerHTML = "";
-
-        let title = "";
-        let authors = "";
-
-        // openBD API
-        const openbdApi = "https://api.openbd.jp/v1/get?isbn=";
-        const response = await fetch(openbdApi + isbn).then((r) => r.json());
-        bookStatus("通信中...");
-        if (response[0]) {
-          title = response[0].summary.title;
-          authors = response[0].summary.author
-            .replace(/,/g, "")
-            .replace(/\d{4}-/g, "")
-            .replace(/\s/g, "_");
-        }
-
-        // Google Books API
-        const googleBookApi = "https://www.googleapis.com/books/v1/volumes?q=isbn:";
-        try {
-          bookStatus("通信中...");
-          const res = await fetch(googleBookApi + isbn);
-          const data = await res.json();
-
-          if (data.totalItems) {
-            const info = data.items[0].volumeInfo;
-            if (!title) title = info.title;
-            if (!authors && info.authors) authors = info.authors.join("_");
-          }
-        } catch (e) {
-          console.log("Google Books API error:", e);
-        }
-
-        const isbn10 = i13to10(isbn);
-        const amazonbookImageUrl =
-          "https://images-na.ssl-images-amazon.com/images/P/";
-        const bookImageUrl = `${amazonbookImageUrl}${isbn10}.09.LZZZZZZZ`;
-
-        const bookName = title || authors ? `${isbn}_${title}_${authors}` : isbn;
-        bookTitle(bookName);
-
-        const dl = await fetch(bookImageUrl);
-        if (!dl.ok) {
-          bookStatus("画像が見つかりませんでした。");
-          return;
-        }
-        const image = await dl.blob();
-        bookStatus("");
-
-        if (image.size > 50) {
-          const base64Image = await blobToBase64(image);
-          const imgElement = document.createElement("img");
-          imgElement.src = base64Image;
-          imgElement.alt = bookName;
-          imgElement.onclick = () => downloadImage(image, bookName);
-          document.getElementById("bookImageUrl").innerHTML = "";
-          document.getElementById("bookImageUrl").appendChild(imgElement);
-
-          addHistory(bookName, base64Image);
-          document.getElementById("isbn").value = "9784";
-        } else {
-          bookStatus("画像が見つかりませんでした。");
-          document.getElementById("bookImageUrl").innerHTML = "";
-          document.getElementById("isbn").value = "9784";
-        }
+        return;
       }
 
-      // ページロード時に履歴を読み込む
-      window.onload = loadHistory;
-    </script>
-  </body>
+      const regex = /^978[\dX]{10}$/;
+      if (!isbn.match(regex)) {
+        bookStatus("ISBNは13桁の数字で978から始まる必要があります。");
+        return;
+      }
+
+      bookStatus("");
+      bookTitle("");
+      document.getElementById("bookImageUrl").innerHTML = "";
+
+      let title = "";
+      let authors = "";
+
+      // openBD API
+      const openbdApi = "https://api.openbd.jp/v1/get?isbn=";
+      const response = await fetch(openbdApi + isbn).then((r) => r.json());
+      bookStatus("通信中...");
+      if (response[0]) {
+        title = response[0].summary.title;
+        authors = response[0].summary.author
+          .replace(/,/g, "")
+          .replace(/\d{4}-/g, "")
+          .replace(/\s/g, "_");
+      }
+
+      // Google Books API
+      const googleBookApi = "https://www.googleapis.com/books/v1/volumes?q=isbn:";
+      try {
+        bookStatus("通信中...");
+        const res = await fetch(googleBookApi + isbn);
+        const data = await res.json();
+
+        if (data.totalItems) {
+          const info = data.items[0].volumeInfo;
+          if (!title) title = info.title;
+          if (!authors && info.authors) authors = info.authors.join("_");
+        }
+      } catch (e) {
+        console.log("Google Books API error:", e);
+      }
+
+      const isbn10 = i13to10(isbn);
+      const amazonbookImageUrl =
+        "https://images-na.ssl-images-amazon.com/images/P/";
+      const bookImageUrl = `${amazonbookImageUrl}${isbn10}.09.LZZZZZZZ`;
+
+      const bookName = title || authors ? `${isbn}_${title}_${authors}` : isbn;
+      bookTitle(bookName);
+
+      const dl = await fetch(bookImageUrl);
+      if (!dl.ok) {
+        bookStatus("画像が見つかりませんでした。");
+        return;
+      }
+      const image = await dl.blob();
+      bookStatus("");
+
+      if (image.size > 50) {
+        const base64Image = await blobToBase64(image);
+        const imgElement = document.createElement("img");
+        imgElement.src = base64Image;
+        imgElement.alt = bookName;
+        imgElement.onclick = () => downloadImage(image, bookName);
+        document.getElementById("bookImageUrl").innerHTML = "";
+        document.getElementById("bookImageUrl").appendChild(imgElement);
+
+        addHistory(bookName, base64Image);
+        document.getElementById("isbn").value = "9784";
+      } else {
+        bookStatus("画像が見つかりませんでした。");
+        document.getElementById("bookImageUrl").innerHTML = "";
+        document.getElementById("isbn").value = "9784";
+      }
+    }
+
+    // ページロード時に履歴を読み込む
+    window.onload = loadHistory;
+  </script>
+</body>
+
 </html>
